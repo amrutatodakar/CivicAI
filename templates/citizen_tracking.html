@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Track your complaint — CivicAI{% endblock %}
+{% block body_class %}page-track{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero-light">
+  <div class="container page-hero-grid">
+    <div>
+      <p class="eyebrow eyebrow-dark">Complaint tracking</p>
+      <h1>Follow your report from receipt to resolution.</h1>
+      <p class="page-lead">Enter the complaint ID you received. The page reads the latest persisted status — not a temporary browser state.</p>
+    </div>
+    <div class="track-search-card">
+      <form method="get" action="{{ url_for('citizen.track') }}" class="track-form">
+        <label for="complaint_id">Complaint ID</label>
+        <div class="input-button-row">
+          <input type="text" id="complaint_id" name="complaint_id" value="{{ public_id or '' }}" placeholder="CIV-0001" pattern="[Cc][Ii][Vv]-[0-9]{4,}" autocomplete="off" required aria-describedby="id-hint">
+          <button class="btn btn-primary" type="submit">Track</button>
+        </div>
+        <p class="field-hint" id="id-hint">Format: CIV-0001. Case does not matter.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tight">
+  <div class="container track-layout">
+    <div class="card track-guide">
+      <h2>How tracking works</h2>
+      <div class="lifecycle">
+        {% set steps = [
+          ('Submitted', 'Your report is stored and AI analysis runs.'),
+          ('Under Review', 'The civic desk reviews the evidence.'),
+          ('Assigned', 'A responsible department is selected.'),
+          ('In Progress', 'A field team starts work.'),
+          ('Resolved', 'The issue is closed after verification.')
+        ] %}
+        {% for label, description in steps %}
+          <div class="lifecycle-step">
+            <span class="lifecycle-dot">{{ loop.index }}</span>
+            <div><strong>{{ label }}</strong><p>{{ description }}</p></div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <aside class="track-aside">
+      <div class="card aside-info-card">
+        <span class="aside-kicker">No account needed</span>
+        <h2>Your ID is your key</h2>
+        <p>We do not ask for a name, phone number or email. Keep your complaint ID safe.</p>
+        <div class="id-example">CIV-0001</div>
+        <p class="field-hint">On this device, reports you submit are also saved in <a href="{{ url_for('citizen.my_reports') }}">My reports</a> using local browser storage.</p>
+      </div>
+      <div class="card aside-info-card">
+        <span class="aside-kicker">What is public</span>
+        <h2>Safe by design</h2>
+        <ul class="check-list">
+          <li>Complaint category, summary and priority</li>
+          <li>Current status and public status notes</li>
+          <li>Assigned department and timestamps</li>
+        </ul>
+        <p class="field-hint">Internal officer notes, audit logs and account data are never shown on public tracking pages.</p>
+      </div>
+      <div class="aside-cta">
+        <p>Need to report a different issue?</p>
+        <a class="btn btn-primary" href="{{ url_for('citizen.report') }}">Report an issue</a>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

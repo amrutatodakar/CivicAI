@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}My reports — CivicAI{% endblock %}
+{% block body_class %}page-my-reports{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero-light">
+  <div class="container page-hero-grid">
+    <div>
+      <p class="eyebrow eyebrow-dark">This device</p>
+      <h1>My reports</h1>
+      <p class="page-lead">CivicAI does not use citizen accounts. Reports you submit are saved in this browser’s local storage so you can return to them later.</p>
+    </div>
+    <div class="page-hero-meta">
+      <span class="meta-step"><strong>Private</strong> to this browser</span>
+      <span class="meta-step"><strong>No</strong> personal profile</span>
+      <span class="meta-step"><strong>Live</strong> database status</span>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tight">
+  <div class="container">
+    <div class="my-reports-toolbar">
+      <div>
+        <h2>Saved complaint IDs</h2>
+        <p class="field-hint">Status is fetched from the server each time this page loads.</p>
+      </div>
+      <form id="saved-add-form" class="saved-add-form">
+        <label class="sr-only" for="saved-complaint-id">Add a complaint ID to this device</label>
+        <input type="text" id="saved-complaint-id" placeholder="CIV-0001" pattern="[Cc][Ii][Vv]-[0-9]{4,}" autocomplete="off">
+        <button class="btn btn-outline btn-small" type="submit">Add ID</button>
+      </form>
+    </div>
+    <p class="form-status" id="saved-reports-status" role="status"></p>
+    <div id="saved-reports" class="saved-reports" aria-live="polite">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+    <noscript>
+      <div class="empty-state">
+        <h3>JavaScript is required for saved reports</h3>
+        <p>You can still track any complaint directly by ID.</p>
+        <a class="btn btn-primary" href="{{ url_for('citizen.track') }}">Open tracking</a>
+      </div>
+    </noscript>
+  </div>
+</section>
+{% endblock %}

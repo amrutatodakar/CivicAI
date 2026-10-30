@@ -1,0 +1,26 @@
+# Environment and local data
+.env
+.venv/
+venv/
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded evidence (keep the folder, not the files)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

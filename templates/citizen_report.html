@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Report a civic issue — CivicAI{% endblock %}
+{% block body_class %}page-report{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero-light">
+  <div class="container page-hero-grid">
+    <div>
+      <p class="eyebrow eyebrow-dark">Citizen report</p>
+      <h1>Tell us what needs fixing.</h1>
+      <p class="page-lead">One issue per report. No account, no personal details. The AI analysis runs automatically when you submit.</p>
+    </div>
+    <div class="page-hero-meta">
+      <span class="meta-step"><strong>~1 min</strong> to submit</span>
+      <span class="meta-step"><strong>Instant</strong> complaint ID</span>
+      <span class="meta-step"><strong>Public</strong> status tracking</span>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tight">
+  <div class="container report-layout">
+    <form class="card report-form" id="report-form" method="post" action="{{ url_for('citizen.report') }}" enctype="multipart/form-data" novalidate data-loading-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="card-heading">
+        <div>
+          <h2>Issue details</h2>
+          <p>Describe the problem in your own words. AI handles the categorisation and prioritisation.</p>
+        </div>
+        <span class="required-note">* required</span>
+      </div>
+
+      <div class="field {% if errors.get('title') %}field-invalid{% endif %}">
+        <label for="title">Complaint title <span class="req">*</span></label>
+        <input type="text" id="title" name="title" value="{{ form.get('title', '') }}" minlength="5" maxlength="120" placeholder="e.g. Deep pothole near the college bus stop" required autocomplete="off">
+        <div class="field-foot">
+          <span class="field-hint">A short, specific headline.</span>
+          <span class="char-count" data-count-for="title" data-max="120"></span>
+        </div>
+        {% if errors.get('title') %}<p class="field-error">{{ errors.get('title') }}</p>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <div class="field {% if errors.get('category') %}field-invalid{% endif %}">
+          <label for="category">Category</label>
+          <select id="category" name="category">
+            <option value="">Let AI decide</option>
+            {% set selected_category = form.get('category') or request.args.get('category', '') %}
+            {% for category in categories %}
+              <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+          </select>
+          <span class="field-hint">AI may refine this based on your description.</span>
+          {% if errors.get('category') %}<p class="field-error">{{ errors.get('category') }}</p>{% endif %}
+        </div>
+        <div class="field {% if errors.get('address') %}field-invalid{% endif %}">
+          <label for="address">Location description <span class="req">*</span></label>
+          <input type="text" id="address" name="address" value="{{ form.get('address', '') }}" minlength="4" maxlength="250" placeholder="e.g. College Road, near the main gate" required autocomplete="off">
+          <span class="field-hint">Use a landmark, street or ward. Fictional demo locations are fine.</span>
+          {% if errors.get('address') %}<p class="field-error">{{ errors.get('address') }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="field {% if errors.get('description') %}field-invalid{% endif %}">
+        <label for="description">Description <span class="req">*</span></label>
+        <textarea id="description" name="description" rows="6" minlength="20" maxlength="3000" placeholder="What is happening? Who is affected? How long has it been there? Is there an immediate safety risk?" required>{{ form.get('description', '') }}</textarea>
+        <div class="field-foot">
+          <span class="field-hint">Mention safety risks, nearby landmarks and how the issue affects people.</span>
+          <span class="char-count" data-count-for="description" data-max="3000"></span>
+        </div>
+        {% if errors.get('description') %}<p class="field-error">{{ errors.get('description') }}</p>{% endif %}
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="latitude">Latitude <span class="optional">optional</span></label>
+          <input type="number" step="any" id="latitude" name="latitude" value="{{ form.get('latitude', '') }}" placeholder="22.3116" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="longitude">Longitude <span class="optional">optional</span></label>
+          <input type="number" step="any" id="longitude" name="longitude" value="{{ form.get('longitude', '') }}" placeholder="73.1817" inputmode="decimal">
+        </div>
+      </div>
+      {% if errors.get('coordinates') %}<p class="field-error field-error-block">{{ errors.get('coordinates') }}</p>{% endif %}
+      <p class="field-hint coordinates-hint">Click the map or use your current location. Coordinates help detect duplicates and hotspots; the location description is still required.</p>
+
+      <div class="field {% if errors.get('image') %}field-invalid{% endif %}">
+        <label for="image">Supporting photo <span class="optional">optional</span></label>
+        <div class="upload-box">
+          <input type="file" id="image" name="image" accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif">
+          <div class="upload-copy">
+            <strong>PNG, JPG, WEBP or GIF</strong>
+            <span>Up to 5 MB. Images are stored as evidence and are not automatically analysed.</span>
+          </div>
+        </div>
+        {% if errors.get('image') %}<p class="field-error">{{ errors.get('image') }}</p>{% endif %}
+        <div class="image-preview" id="image-preview" hidden>
+          <img alt="Selected complaint photo preview" id="image-preview-img">
+          <button type="button" class="btn btn-ghost btn-small" id="clear-image">Remove photo</button>
+        </div>
+      </div>
+
+      <div class="form-submit-row">
+        <button type="submit" class="btn btn-primary btn-large" id="submit-report">
+          Submit &amp; analyse report <span aria-hidden="true">→</span>
+        </button>
+        <p class="privacy-note">The report becomes publicly trackable by its complaint ID. Do not include personal details about other people.</p>
+      </div>
+      <p class="form-status" id="report-form-status" role="status"></p>
+    </form>
+
+    <aside class="report-aside">
+      <section class="card map-card" aria-labelledby="map-heading">
+        <div class="card-heading compact">
+          <div>
+            <h2 id="map-heading">Pin the location</h2>
+            <p>Click the map to drop a pin. Drag it to adjust.</p>
+          </div>
+        </div>
+        <div class="location-map" id="location-map" data-lat="22.3100" data-lng="73.1800" role="application" aria-label="Map for selecting complaint location">
+          <div class="map-loading" id="map-loading">Loading map…</div>
+        </div>
+        <div class="map-status" id="map-status" aria-live="polite">No coordinates selected yet.</div>
+        <div class="map-actions">
+          <button type="button" class="btn btn-outline btn-small" id="locate-me">Use my location</button>
+          <button type="button" class="btn btn-ghost btn-small" id="clear-location">Clear pin</button>
+        </div>
+        <noscript><p class="field-hint">JavaScript is off. Enter coordinates manually above. The map needs internet access for tiles.</p></noscript>
+      </section>
+
+      <section class="card aside-info-card">
+        <span class="aside-kicker">What happens next</span>
+        <ol class="mini-steps">
+          <li><span>1</span> You receive a unique ID such as <strong>CIV-0001</strong>.</li>
+          <li><span>2</span> Local NLP predicts category and summary.</li>
+          <li><span>3</span> A transparent priority score is calculated from the evidence.</li>
+          <li><span>4</span> Similar reports and nearby clusters are surfaced to officers.</li>
+          <li><span>5</span> You track every status change using the same ID.</li>
+        </ol>
+        <div class="ai-engine-note">
+          <span class="engine-dot" aria-hidden="true"></span>
+          <div>
+            <strong>{{ llm.label }}</strong>
+            <p>{% if llm.enabled %}An LLM is configured for category and summary. Priority stays rule-based and explainable.{% else %}No external API key is required. Classification, summary and priority run locally with transparent rules.{% endif %}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card aside-info-card">
+        <span class="aside-kicker">A useful report includes</span>
+        <ul class="check-list">
+          <li>A specific landmark or street</li>
+          <li>Who or what is affected</li>
+          <li>Any immediate safety risk</li>
+          <li>How long the problem has existed</li>
+        </ul>
+        <p class="field-hint">Fictional demo locations such as “College Road, Demo City” are valid for testing.</p>
+      </section>
+    </aside>
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='js/report.js') }}" defer></script>
+{% endblock %}

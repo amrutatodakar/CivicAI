@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}CivicAI — From complaints to action{% endblock %}
+{% block body_class %}page-home{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Working civic intelligence MVP</p>
+      <h1>From scattered complaints<br><span>to coordinated action.</span></h1>
+      <p class="hero-lead">Report a civic problem in under a minute. CivicAI classifies it, explains its priority, finds related reports and gives the municipality a clear next step — with every status update visible to the citizen.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-large" href="{{ url_for('citizen.report') }}">Report an issue <span aria-hidden="true">→</span></a>
+        <a class="btn btn-on-dark btn-large" href="{{ url_for('officer.login') }}">Open officer console</a>
+      </div>
+      <ul class="hero-proof" aria-label="Key capabilities">
+        <li>Explainable priority</li>
+        <li>Duplicate detection</li>
+        <li>Hotspot mapping</li>
+        <li>Public tracking</li>
+      </ul>
+    </div>
+
+    <aside class="hero-panel" aria-label="Live complaint overview">
+      <div class="panel-topline">
+        <span class="panel-title">Civic pulse</span>
+        <span class="demo-pill">Live database</span>
+      </div>
+      <div class="hero-metrics">
+        <div class="hero-metric">
+          <span class="metric-value">{{ total }}</span>
+          <span class="metric-label">Total reports</span>
+        </div>
+        <div class="hero-metric">
+          <span class="metric-value">{{ active }}</span>
+          <span class="metric-label">Open</span>
+        </div>
+        <div class="hero-metric">
+          <span class="metric-value">{{ resolved_rate }}<small>%</small></span>
+          <span class="metric-label">Resolved</span>
+        </div>
+      </div>
+      <div class="hero-chart" aria-label="Reports by category">
+        {% for category, count in category_counts.items() %}
+          <div class="hero-bar-row">
+            <span class="hero-bar-label">{{ category }}</span>
+            <div class="hero-bar-track">
+              <span class="hero-bar-fill" style="--bar: {{ (count / (total if total else 1) * 100) | round(1) }}%"></span>
+            </div>
+            <span class="hero-bar-value">{{ count }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="panel-foot">
+        <span class="attention-dot" aria-hidden="true"></span>
+        {{ high_open }} high or critical reports currently open
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="trust-strip">
+  <div class="container trust-grid">
+    <div class="trust-item">
+      <span class="trust-kicker">01 / Understand</span>
+      <strong>AI-assisted triage</strong>
+      <p>Category and summary generated from the report text.</p>
+    </div>
+    <div class="trust-item">
+      <span class="trust-kicker">02 / Explain</span>
+      <strong>Transparent scoring</strong>
+      <p>Every priority point has an evidence trail.</p>
+    </div>
+    <div class="trust-item">
+      <span class="trust-kicker">03 / Coordinate</span>
+      <strong>Cluster the pattern</strong>
+      <p>Duplicates and geographic hotspots surface the bigger issue.</p>
+    </div>
+    <div class="trust-item">
+      <span class="trust-kicker">04 / Track</span>
+      <strong>Close the loop</strong>
+      <p>Citizens follow the same status history officers update.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow eyebrow-dark">One report, a complete response</p>
+        <h2>Built around the workflow, not just a form</h2>
+      </div>
+      <p class="section-aside">Every stage below is implemented against the same SQLite database. New reports immediately affect the dashboard, map and hotspot analysis.</p>
+    </div>
+
+    <div class="workflow-grid">
+      <article class="workflow-step">
+        <span class="step-number">1</span>
+        <h3>Citizen reports</h3>
+        <p>Title, description, category, location and an optional photo. No account or personal details required.</p>
+      </article>
+      <article class="workflow-step">
+        <span class="step-number">2</span>
+        <h3>AI analyses</h3>
+        <p>Local NLP predicts the category, writes an extractive summary and computes an explainable 0–100 priority score.</p>
+      </article>
+      <article class="workflow-step">
+        <span class="step-number">3</span>
+        <h3>System connects</h3>
+        <p>TF-IDF text similarity plus geographic distance suggests possible duplicates and reveals clustered hotspots.</p>
+      </article>
+      <article class="workflow-step">
+        <span class="step-number">4</span>
+        <h3>Officer acts</h3>
+        <p>Review the evidence, assign a department, change the status and leave an internal or public note.</p>
+      </article>
+      <article class="workflow-step">
+        <span class="step-number">5</span>
+        <h3>Citizen tracks</h3>
+        <p>The tracking page reads persisted status history — never just a frontend state — so progress is visible.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tinted">
+  <div class="container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow eyebrow-dark">What can be reported</p>
+        <h2>Seven civic categories</h2>
+      </div>
+      <a class="text-link" href="{{ url_for('citizen.report') }}">Start a report <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="category-grid">
+      {% set cat_meta = {
+        'Road Damage': ('RD', 'Potholes, broken asphalt, cracked footpaths'),
+        'Waterlogging': ('WL', 'Flooded roads, standing water, submerged lanes'),
+        'Garbage and Waste': ('GW', 'Overflowing bins, dumping, uncollected waste'),
+        'Drainage': ('DR', 'Blocked drains, sewage overflow, open manholes'),
+        'Streetlight': ('SL', 'Dark streets, broken lamps, damaged poles'),
+        'Public Safety': ('PS', 'Live wires, collapsed structures, stray animals'),
+        'Other': ('OT', 'Other public infrastructure problems')
+      } %}
+      {% for category in cat_meta %}
+        <a class="category-card cat-{{ category|category_slug }}" href="{{ url_for('citizen.report', category=category) }}">
+          <span class="cat-chip" aria-hidden="true">{{ cat_meta[category][0] }}</span>
+          <span class="category-card-body">
+            <span class="category-name">{{ category }}</span>
+            <span class="category-desc">{{ cat_meta[category][1] }}</span>
+          </span>
+          <span class="category-count">{{ category_counts.get(category, 0) }} reports</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if hotspots %}
+<section class="section">
+  <div class="container">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow eyebrow-dark">Geographic patterns</p>
+        <h2>Where reports are concentrating</h2>
+      </div>
+      <p class="section-aside">Real clusters calculated from stored coordinates. A hotspot indicates concentration — not a proven root cause.</p>
+    </div>
+    <div class="insight-grid">
+      {% for spot in hotspots %}
+        <article class="insight-card">
+          <div class="insight-top">
+            <span class="concern-chip concern-{{ spot.concern|replace(' ', '-')|lower }}">{{ spot.concern }}</span>
+            <span class="insight-count">{{ spot.total }} reports</span>
+          </div>
+          <h3>{{ spot.name }}</h3>
+          <p>{{ spot.insight }}</p>
+          <div class="tag-row">
+            {% for item in spot.category_counts[:3] %}
+              <span class="tag">{{ item.category }} · {{ item.count }}</span>
+            {% endfor %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="section cta-section">
+  <div class="container cta-card">
+    <div>
+      <p class="eyebrow">See the full loop</p>
+      <h2>Report a problem, then watch it move.</h2>
+      <p>Use the demo journey to see analysis, duplicate suggestions, officer assignment and citizen tracking in one flow.</p>
+    </div>
+    <div class="cta-actions">
+      <a class="btn btn-primary btn-large" href="{{ url_for('citizen.report') }}">Report an issue</a>
+      <a class="btn btn-outline btn-large" href="{{ url_for('officer.login') }}">Enter officer demo</a>
+    </div>
+  </div>
+</section>
+
+<section class="disclosure-section">
+  <div class="container disclosure">
+    <strong>Demo transparency:</strong> this prototype ships with {{ demo_records }} clearly labelled synthetic complaint records in Demo City. No real citizen data or municipal credentials are used. Priority scores and AI categories are decision support, not verified facts.
+  </div>
+</section>
+{% endblock %}

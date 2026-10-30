@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CivicAI turns scattered civic complaints into prioritised, traceable municipal action.">
+  <title>{% block title %}CivicAI — From complaints to action{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="{{ url_for('citizen.index') }}" aria-label="CivicAI home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img">
+            <path d="M16 3.5c-5.2 0-9.4 4.1-9.4 9.2 0 6.8 8.2 15.2 9 16a.6.6 0 0 0 .9 0c.8-.8 9-9.2 9-16 0-5.1-4.3-9.2-9.5-9.2Z" fill="currentColor"/>
+            <circle cx="16" cy="12.4" r="3.6" fill="#fff"/>
+            <path d="M7 26.5h18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Civic<span>AI</span></span>
+          <span class="brand-tag">complaints to action</span>
+        </span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Open navigation">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" id="primary-nav" aria-label="Primary">
+        <a href="{{ url_for('citizen.index') }}" class="{% if request.endpoint == 'citizen.index' %}active{% endif %}">Home</a>
+        <a href="{{ url_for('citizen.report') }}" class="{% if request.endpoint == 'citizen.report' %}active{% endif %}">Report an issue</a>
+        <a href="{{ url_for('citizen.track') }}" class="{% if request.endpoint == 'citizen.track' %}active{% endif %}">Track complaint</a>
+        <a href="{{ url_for('citizen.my_reports') }}" class="{% if request.endpoint == 'citizen.my_reports' %}active{% endif %}">My reports</a>
+        {% if officer_session %}
+          <a href="{{ url_for('officer.dashboard') }}" class="nav-officer">Officer console</a>
+          <form method="post" action="{{ url_for('officer.logout') }}" class="nav-logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-small">Sign out</button>
+          </form>
+        {% else %}
+          <a href="{{ url_for('officer.login') }}" class="nav-officer">Officer console <span class="nav-arrow" aria-hidden="true">→</span></a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="container flash-stack" aria-live="polite">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">
+              <span class="flash-dot" aria-hidden="true"></span>
+              <span class="flash-text">{{ message }}</span>
+              <button type="button" class="flash-close" aria-label="Dismiss message">×</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand brand-footer" href="{{ url_for('citizen.index') }}">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M16 3.5c-5.2 0-9.4 4.1-9.4 9.2 0 6.8 8.2 15.2 9 16a.6.6 0 0 0 .9 0c.8-.8 9-9.2 9-16 0-5.1-4.3-9.2-9.5-9.2Z" fill="currentColor"/><circle cx="16" cy="12.4" r="3.6" fill="#fff"/></svg>
+          </span>
+          <span class="brand-name">Civic<span>AI</span></span>
+        </a>
+        <p>An AI-assisted civic complaint workflow built for a hackathon MVP. Decision support, not a replacement for municipal judgement.</p>
+      </div>
+      <div class="footer-col">
+        <h3>Citizens</h3>
+        <a href="{{ url_for('citizen.report') }}">Report an issue</a>
+        <a href="{{ url_for('citizen.track') }}">Track a complaint</a>
+        <a href="{{ url_for('citizen.my_reports') }}">My saved reports</a>
+      </div>
+      <div class="footer-col">
+        <h3>Operations</h3>
+        <a href="{{ url_for('officer.login') }}">Officer console</a>
+        <a href="{{ url_for('api.health') }}">System health</a>
+        <span class="footer-muted">AI engine: {{ llm.label }}</span>
+      </div>
+      <div class="footer-col footer-note">
+        <h3>Demo disclosure</h3>
+        <p>Synthetic sample data · Single demo officer account · No municipal integration.</p>
+        <p class="footer-muted">© {{ current_year }} CivicAI</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

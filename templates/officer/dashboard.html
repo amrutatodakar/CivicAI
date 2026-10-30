@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Officer operations console — CivicAI{% endblock %}
+{% block body_class %}page-officer-dashboard{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/officer.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set stats = dashboard.stats %}
+<section class="dashboard-head">
+  <div class="container">
+    <div class="dashboard-title-row">
+      <div>
+        <p class="eyebrow eyebrow-dark">Municipal operations · Demo City</p>
+        <h1>Operations console</h1>
+        <p class="page-lead">Triage from evidence, act on patterns, and keep the citizen-facing status in sync.</p>
+      </div>
+      <div class="dashboard-actions">
+        <span class="live-status"><span class="live-dot" aria-hidden="true"></span> Live database</span>
+        <button type="button" class="btn btn-outline btn-small" id="refresh-dashboard">Refresh data</button>
+        <a class="btn btn-primary btn-small" href="{{ url_for('citizen.report') }}">New complaint</a>
+      </div>
+    </div>
+
+    <div class="demo-banner">
+      <span class="demo-pill">Demo mode</span>
+      <p><strong>Single shared officer account.</strong> Records marked “Synthetic demo record” were generated for this hackathon. No real citizen data or municipal integration is present.</p>
+      <span class="demo-engine">{{ llm.label }}</span>
+    </div>
+
+    <div class="stat-grid">
+      <article class="stat-card">
+        <span class="stat-label">Total complaints</span>
+        <strong class="stat-value">{{ stats.total }}</strong>
+        <span class="stat-note">{{ stats.active }} currently open</span>
+      </article>
+      <article class="stat-card stat-pending">
+        <span class="stat-label">Pending review</span>
+        <strong class="stat-value">{{ stats.pending }}</strong>
+        <span class="stat-note">Submitted or under review</span>
+      </article>
+      <article class="stat-card stat-high">
+        <span class="stat-label">High priority</span>
+        <strong class="stat-value">{{ stats.high }}</strong>
+        <span class="stat-note">Open high-priority reports</span>
+      </article>
+      <article class="stat-card stat-critical">
+        <span class="stat-label">Critical open</span>
+        <strong class="stat-value">{{ stats.critical }}</strong>
+        <span class="stat-note">Review first</span>
+      </article>
+      <article class="stat-card stat-progress">
+        <span class="stat-label">In progress</span>
+        <strong class="stat-value">{{ stats.in_progress }}</strong>
+        <span class="stat-note">Assigned or field work</span>
+      </article>
+      <article class="stat-card stat-resolved">
+        <span class="stat-label">Resolved</span>
+        <strong class="stat-value">{{ stats.resolved }}</strong>
+        <span class="stat-note">{{ stats.avg_priority }} avg. priority score</span>
+      </article>
+    </div>
+    <div class="dashboard-substats">
+      <span><strong>{{ stats.duplicate_suggestions }}</strong> duplicate suggestions awaiting review</span>
+      <span><strong>{{ stats.confirmed_duplicates }}</strong> confirmed duplicate links</span>
+      <span><strong>{{ stats.hotspots }}</strong> geographic hotspots detected</span>
+      <span>Updated {{ dashboard.generated_at|replace('T',' ')|replace('Z','') }} UTC</span>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tight dashboard-body">
+  <div class="container">
+    <section class="dashboard-section" aria-labelledby="queue-heading">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow eyebrow-dark">1 · Immediate attention</p>
+          <h2 id="queue-heading">Priority queue</h2>
+        </div>
+        <p class="section-aside">Open high and critical reports, ordered by score. Priority is decision support; review the evidence before acting.</p>
+      </div>
+      {% if dashboard.critical_queue %}
+        <div class="critical-queue">
+          {% for item in dashboard.critical_queue %}
+            <a class="critical-item priority-border-{{ item.priority_level|priority_class }}" href="{{ url_for('officer.complaint_detail', public_id=item.public_id) }}">
+              <div class="critical-score">
+                <strong>{{ item.priority_score }}</strong>
+                <span>score</span>
+              </div>
+              <div class="critical-body">
+                <div class="critical-meta">
+                  <span class="badge priority-{{ item.priority_level|priority_class }}">{{ item.priority_level }}</span>
+                  <span class="badge status-{{ item.status|status_class }}">{{ item.status }}</span>
+                  <span class="mono">{{ item.public_id }}</span>
+                  {% if item.duplicate_of %}<span class="badge badge-neutral">Duplicate of {{ item.duplicate_of }}</span>{% endif %}
+                </div>
+                <strong class="critical-title">{{ item.title }}</strong>
+                <span class="critical-location">{{ item.address }}</span>
+                {% if item.factors %}
+                  <span class="critical-reason">{{ item.factors[0].detail }}</span>
+                {% endif %}
+              </div>
+              <span class="row-arrow" aria-hidden="true">→</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state compact-empty">
+          <strong>No open high or critical reports.</strong>
+          <p>The queue will populate as new evidence is submitted.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="dashboard-section" aria-labelledby="overview-heading">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow eyebrow-dark">2 · Priority and volume</p>
+          <h2 id="overview-heading">Complaint overview</h2>
+        </div>
+        <p class="section-aside">All figures are calculated from stored complaints each time this page loads.</p>
+      </div>
+
+      <div class="chart-grid">
+        <article class="card chart-card chart-wide">
+          <div class="chart-head">
+            <div><h3>Reports over the last 14 days</h3><p>Created complaints per day</p></div>
+          </div>
+          <div class="chart-canvas-wrap"><canvas id="chart-trends" height="230" aria-label="Complaint trend chart" role="img"></canvas></div>
+          <div class="chart-fallback" id="fallback-trends" hidden></div>
+          <details class="chart-data">
+            <summary>View data table</summary>
+            <table class="mini-table"><thead><tr><th>Date</th><th>Reports</th></tr></thead><tbody>
+              {% for row in dashboard.trends %}<tr><td>{{ row.label }}</td><td>{{ row.count }}</td></tr>{% endfor %}
+            </tbody></table>
+          </details>
+        </article>
+
+        <article class="card chart-card">
+          <div class="chart-head"><div><h3>Priority mix</h3><p>All complaints</p></div></div>
+          <div class="chart-canvas-wrap chart-small"><canvas id="chart-priority" aria-label="Priority distribution chart" role="img"></canvas></div>
+          <div class="chart-fallback" id="fallback-priority" hidden></div>
+          <details class="chart-data">
+            <summary>View data table</summary>
+            <table class="mini-table"><thead><tr><th>Priority</th><th>Count</th></tr></thead><tbody>
+              {% for row in dashboard.priority_distribution %}<tr><td>{{ row.level }}</td><td>{{ row.count }}</td></tr>{% endfor %}
+            </tbody></table>
+          </details>
+        </article>
+
+        <article class="card chart-card">
+          <div class="chart-head"><div><h3>Category distribution</h3><p>All complaints</p></div></div>
+          <div class="chart-canvas-wrap"><canvas id="chart-categories" height="240" aria-label="Complaint category chart" role="img"></canvas></div>
+          <div class="chart-fallback" id="fallback-categories" hidden></div>
+          <details class="chart-data">
+            <summary>View data table</summary>
+            <table class="mini-table"><thead><tr><th>Category</th><th>Count</th></tr></thead><tbody>
+              {% for row in dashboard.category_distribution %}<tr><td>{{ row.category }}</td><td>{{ row.count }}</td></tr>{% endfor %}
+            </tbody></table>
+          </details>
+        </article>
+
+        <article class="card chart-card">
+          <div class="chart-head"><div><h3>Workflow status</h3><p>All complaints</p></div></div>
+          <div class="chart-canvas-wrap chart-small"><canvas id="chart-status" aria-label="Complaint status chart" role="img"></canvas></div>
+          <div class="chart-fallback" id="fallback-status" hidden></div>
+          <details class="chart-data">
+            <summary>View data table</summary>
+            <table class="mini-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>
+              {% for row in dashboard.status_distribution %}<tr><td>{{ row.status }}</td><td>{{ row.count }}</td></tr>{% endfor %}
+            </tbody></table>
+          </details>
+        </article>
+      </div>
+    </section>
+
+    <section class="dashboard-section" aria-labelledby="geo-heading">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow eyebrow-dark">3 · Geographic patterns</p>
+          <h2 id="geo-heading">Complaint map &amp; hotspots</h2>
+        </div>
+        <p class="section-aside">Clusters require at least {{ dashboard.hotspot_data.min_reports }} reports within {{ (dashboard.hotspot_data.radius_km * 1000)|round(0)|int }} m. A hotspot is a concentration, not a proven cause.</p>
+      </div>
+
+      <div class="geo-grid">
+        <article class="card map-panel">
+          <div class="map-toolbar">
+            <div class="map-legend" aria-label="Marker priority legend">
+              <span><i class="legend-dot critical"></i> Critical</span>
+              <span><i class="legend-dot high"></i> High</span>
+              <span><i class="legend-dot medium"></i> Medium</span>
+              <span><i class="legend-dot low"></i> Low</span>
+              <span><i class="legend-dot resolved"></i> Resolved</span>
+            </div>
+            <span class="map-count">{{ dashboard.map_points|length }} geolocated</span>
+          </div>
+          <div id="civic-map" class="dashboard-map" role="application" aria-label="Map of civic complaints">
+            <div class="map-loading">Loading map…</div>
+          </div>
+          <div class="map-fallback-note" id="map-fallback-note" hidden></div>
+          <noscript><p class="field-hint">The map requires JavaScript. Hotspot summaries remain available beside the map.</p></noscript>
+        </article>
+
+        <aside class="hotspot-column" aria-labelledby="hotspot-heading">
+          <div class="hotspot-column-head">
+            <h3 id="hotspot-heading">Detected hotspots</h3>
+            <span class="badge badge-neutral">{{ dashboard.hotspot_data.clusters|length }}</span>
+          </div>
+          <p class="hotspot-message">{{ dashboard.hotspot_data.message }}</p>
+          {% for spot in dashboard.hotspot_data.clusters %}
+            <article class="hotspot-card">
+              <div class="hotspot-top">
+                <div>
+                  <span class="concern-chip concern-{{ spot.concern|replace(' ', '-')|lower }}">{{ spot.concern }}</span>
+                  <h4>{{ spot.name }}</h4>
+                </div>
+                <div class="hotspot-score"><strong>{{ spot.concern_score }}</strong><span>concern</span></div>
+              </div>
+              <div class="hotspot-stats">
+                <span><strong>{{ spot.total }}</strong> reports</span>
+                <span><strong>{{ spot.open }}</strong> open</span>
+                <span><strong>{{ spot.high_or_critical }}</strong> high/critical</span>
+                <span>~{{ spot.radius_m }} m radius</span>
+              </div>
+              <div class="tag-row">
+                {% for category in spot.category_counts[:4] %}
+                  <span class="tag">{{ category.category }} · {{ category.count }}</span>
+                {% endfor %}
+              </div>
+              <p class="hotspot-insight">{{ spot.insight }}</p>
+              <div class="hotspot-actions">
+                <button type="button" class="btn btn-ghost btn-small hotspot-map-btn" data-lat="{{ spot.centroid.lat }}" data-lng="{{ spot.centroid.lng }}">Show on map</button>
+                <a class="text-link small" href="#management" data-hotspot-id="{{ spot.id }}">Manage reports →</a>
+              </div>
+              <details class="hotspot-brief">
+                <summary>Action brief</summary>
+                <div class="brief-body">
+                  <p><strong>What:</strong> {{ spot.brief.what }}</p>
+                  <p><strong>Where:</strong> {{ spot.brief.where }}</p>
+                  <p><strong>Why:</strong> {{ spot.brief.why }}</p>
+                  <ol>{% for step in spot.brief.next_steps %}<li>{{ step }}</li>{% endfor %}</ol>
+                  <p class="field-hint">{{ spot.brief.caveat }}</p>
+                </div>
+              </details>
+            </article>
+          {% else %}
+            <div class="empty-state compact-empty">
+              <strong>No hotspot meets the threshold.</strong>
+              <p>Add more geolocated reports or reduce the radius in configuration.</p>
+            </div>
+          {% endfor %}
+        </aside>
+      </div>
+    </section>
+
+    <section class="dashboard-section" id="management" aria-labelledby="management-heading">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="eyebrow eyebrow-dark">4 · Detailed management</p>
+          <h2 id="management-heading">Complaint management</h2>
+        </div>
+        <p class="section-aside">Filters apply to the table and map. Status changes happen on each complaint detail page.</p>
+      </div>
+
+      <div class="card management-card">
+        <form class="filter-bar" id="complaint-filters">
+          <div class="filter-search">
+            <label class="sr-only" for="filter-q">Search complaints</label>
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input type="search" id="filter-q" name="q" placeholder="Search ID, title, description or location">
+          </div>
+          <div class="filter-group">
+            <label for="filter-category">Category</label>
+            <select id="filter-category" name="category">
+              <option value="">All categories</option>
+              {% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-priority">Priority</label>
+            <select id="filter-priority" name="priority">
+              <option value="">All priorities</option>
+              {% for priority in priorities %}<option value="{{ priority }}">{{ priority }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" name="status">
+              <option value="">All statuses</option>
+              {% for status in statuses %}<option value="{{ status }}">{{ status }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-related">Duplicates</label>
+            <select id="filter-related" name="related">
+              <option value="">Any</option>
+              <option value="duplicates">Confirmed duplicates</option>
+              <option value="unique">Unique reports</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-sort">Sort</label>
+            <select id="filter-sort" name="sort">
+              <option value="newest">Newest first</option>
+              <option value="priority">Priority first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-primary btn-small" type="submit">Apply filters</button>
+            <button class="btn btn-ghost btn-small" type="button" id="clear-filters">Clear</button>
+          </div>
+        </form>
+
+        <div class="table-head">
+          <div>
+            <h3 id="table-title">Recent complaints</h3>
+            <p class="field-hint" id="table-count">Showing {{ dashboard.recent|length }} most recent reports</p>
+          </div>
+          <span class="table-loading" id="table-loading" hidden>Loading…</span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="complaints-table" id="complaints-table">
+            <thead>
+              <tr>
+                <th scope="col">Complaint</th>
+                <th scope="col">Category</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Status</th>
+                <th scope="col">Location</th>
+                <th scope="col">Age</th>
+                <th scope="col"><span class="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody id="complaints-tbody">
+              {% for item in dashboard.recent %}
+                <tr>
+                  <td>
+                    <a class="table-id" href="{{ url_for('officer.complaint_detail', public_id=item.public_id) }}">{{ item.public_id }}</a>
+                    <a class="table-title-link" href="{{ url_for('officer.complaint_detail', public_id=item.public_id) }}">{{ item.title }}</a>
+                    <span class="table-summary">{{ item.summary }}</span>
+                  </td>
+                  <td>{{ item.category }}</td>
+                  <td><span class="badge priority-{{ item.priority_level|priority_class }}">{{ item.priority_level }}</span><span class="table-score">{{ item.priority_score }}</span></td>
+                  <td><span class="badge status-{{ item.status|status_class }}">{{ item.status }}</span></td>
+                  <td>{{ item.address }}</td>
+                  <td>{{ item.created_at|time_ago }}</td>
+                  <td><a class="row-arrow" href="{{ url_for('officer.complaint_detail', public_id=item.public_id) }}" aria-label="Open {{ item.public_id }}">→</a></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="7"><div class="empty-state compact-empty"><strong>No complaints yet.</strong><p>New citizen reports will appear here.</p></div></td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="field-hint table-note">API returns up to 200 matching complaints. Open a complaint to assign work, update status or review AI evidence.</p>
+      </div>
+    </section>
+  </div>
+</section>
+
+<script id="dashboard-data" type="application/json">{{ dashboard|tojson }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}

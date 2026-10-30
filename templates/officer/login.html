@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Officer demo sign in — CivicAI{% endblock %}
+{% block body_class %}page-officer-login{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/officer.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+  <div class="container login-grid">
+    <div class="login-story">
+      <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span> Municipal operations</p>
+      <h1>Turn the queue into a coordinated response.</h1>
+      <p class="login-lead">Review AI-assisted triage, inspect duplicate reports, see geographic patterns and update the same status history citizens track.</p>
+      <div class="login-feature-list">
+        <div class="login-feature"><span>01</span><div><strong>Evidence-first queue</strong><p>Critical and high-priority reports appear before routine work.</p></div></div>
+        <div class="login-feature"><span>02</span><div><strong>Explainable AI</strong><p>Every score exposes its contributing factors and uncertainties.</p></div></div>
+        <div class="login-feature"><span>03</span><div><strong>Accountable workflow</strong><p>Assignments, notes, priority reviews and duplicate links are logged.</p></div></div>
+      </div>
+      <div class="login-disclaimer">
+        <strong>Hackathon demo access.</strong> A single shared demo account protects the officer interface. This is not production-grade authentication or a real municipal system.
+      </div>
+    </div>
+
+    <div class="login-card card">
+      <div class="login-card-head">
+        <span class="login-mark" aria-hidden="true">CA</span>
+        <div>
+          <h2>Officer sign in</h2>
+          <p>Use the demo credentials shown below.</p>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('officer.login') }}" class="login-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ next_url or '' }}">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" value="{{ demo_username }}" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" value="{{ demo_password }}" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-large btn-full">Enter operations console <span aria-hidden="true">→</span></button>
+      </form>
+      <div class="demo-credentials" aria-label="Demo credentials">
+        <span class="demo-pill">Demo credentials</span>
+        <dl>
+          <div><dt>Username</dt><dd><code>{{ demo_username }}</code></dd></div>
+          <div><dt>Password</dt><dd><code>{{ demo_password }}</code></dd></div>
+        </dl>
+        <p>Configured by environment variables. Change them before any public deployment.</p>
+      </div>
+      <a class="back-link" href="{{ url_for('citizen.index') }}">← Back to citizen portal</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

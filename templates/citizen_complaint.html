@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}{{ complaint.public_id }} — CivicAI tracking{% endblock %}
+{% block body_class %}page-complaint{% endblock %}
+
+{% block content %}
+{% if is_new %}
+  <div class="success-banner">
+    <div class="container success-inner">
+      <div class="success-mark" aria-hidden="true">✓</div>
+      <div class="success-copy">
+        <strong>Report received. Your complaint ID is {{ complaint.public_id }}.</strong>
+        <p>Save this ID to track progress. The AI analysis below was generated from your report.</p>
+      </div>
+      <button type="button" class="btn btn-on-dark btn-small copy-btn" data-copy="{{ complaint.public_id }}">Copy ID</button>
+    </div>
+  </div>
+{% endif %}
+
+<section class="complaint-header">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url_for('citizen.index') }}">Home</a><span aria-hidden="true">/</span>
+      <a href="{{ url_for('citizen.track') }}">Track</a><span aria-hidden="true">/</span>
+      <span aria-current="page">{{ complaint.public_id }}</span>
+    </nav>
+    <div class="complaint-title-row">
+      <div>
+        <div class="complaint-id-line">
+          <span class="complaint-id">{{ complaint.public_id }}</span>
+          <span class="badge status-{{ complaint.status|status_class }}">{{ complaint.status }}</span>
+          {% if complaint.duplicate_of %}
+            <span class="badge badge-neutral">Linked to {{ complaint.duplicate_of.public_id }}</span>
+          {% endif %}
+        </div>
+        <h1>{{ complaint.title }}</h1>
+        <p class="complaint-subline">
+          <span>{{ complaint.category }}</span>
+          <span><span class="dot-sep" aria-hidden="true">·</span> {{ complaint.address }}</span>
+          <span><span class="dot-sep" aria-hidden="true">·</span> Submitted {{ complaint.created_at|dt }}</span>
+        </p>
+      </div>
+      <div class="header-priority priority-card-{{ complaint.priority_level|priority_class }}">
+        <span class="priority-caption">Priority</span>
+        <strong>{{ complaint.priority_level }}</strong>
+        <span class="priority-score">{{ complaint.priority_score }}/100</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-tight">
+  <div class="container complaint-layout">
+    <div class="complaint-main">
+      <article class="card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">What was reported</p>
+            <h2>Citizen description</h2>
+          </div>
+          <span class="muted-small">Updated {{ complaint.updated_at|time_ago }}</span>
+        </div>
+        <p class="prose">{{ complaint.description }}</p>
+        {% if complaint.image_path %}
+          <figure class="complaint-photo">
+            <img src="{{ url_for('static', filename=complaint.image_path) }}" alt="Citizen-supplied photo for complaint {{ complaint.public_id }}" loading="lazy">
+            <figcaption>Citizen-supplied evidence. The image is stored for review and is not automatically analysed.</figcaption>
+          </figure>
+        {% endif %}
+      </article>
+
+      <article class="card ai-card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">Automated triage</p>
+            <h2>AI analysis &amp; priority explanation</h2>
+          </div>
+          <span class="engine-badge" title="Analysis engine used for this report">{{ complaint.ai_engine }}</span>
+        </div>
+
+        <div class="summary-block">
+          <span class="detail-label">Generated summary</span>
+          <p class="summary-text">{{ complaint.ai_summary }}</p>
+        </div>
+
+        <div class="analysis-grid">
+          <div class="analysis-metric">
+            <span class="detail-label">Predicted category</span>
+            <strong>{{ complaint.category }}</strong>
+            <span class="metric-foot">{{ (complaint.category_confidence * 100)|round(0)|int }}% classifier confidence</span>
+          </div>
+          <div class="analysis-metric">
+            <span class="detail-label">Recommended team</span>
+            <strong>{{ complaint.recommended_department }}</strong>
+            <span class="metric-foot">Suggestion for officer review</span>
+          </div>
+          <div class="analysis-metric">
+            <span class="detail-label">Priority score</span>
+            <div class="score-inline">
+              <strong>{{ complaint.priority_score }}</strong><span>/100</span>
+              <span class="badge priority-{{ complaint.priority_level|priority_class }}">{{ complaint.priority_level }}</span>
+            </div>
+            <span class="metric-foot">Rule-based, explainable</span>
+          </div>
+        </div>
+
+        <div class="explanation-block">
+          <span class="detail-label">Why this priority</span>
+          <p>{{ complaint.priority_explanation }}</p>
+        </div>
+
+        {% if complaint.factors %}
+          <div class="factor-list" aria-label="Priority score factors">
+            {% for factor in complaint.factors %}
+              <div class="factor-row">
+                <span class="factor-label">{{ factor.label }}</span>
+                <span class="factor-detail">{{ factor.detail }}</span>
+                <span class="factor-points {% if factor.points < 0 %}negative{% endif %}">{{ '+' if factor.points > 0 else '' }}{{ factor.points }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="disclaimer-box">
+          <strong>Decision support, not a guarantee.</strong>
+          Priority is estimated from the report text and available context. It does not confirm that a hazard is dangerous in the real world. Officers can review and override it.
+        </div>
+      </article>
+
+      {% if related %}
+        <article class="card">
+          <div class="card-heading">
+            <div>
+              <p class="section-kicker">Nearby pattern</p>
+              <h2>Possible related reports</h2>
+            </div>
+            <span class="muted-small">{{ related|length }} suggestion(s)</span>
+          </div>
+          <p class="card-intro">CivicAI compares wording and location. These reports are <strong>not merged automatically</strong>; an officer reviews every suggestion.</p>
+          <div class="related-list">
+            {% for item in related %}
+              <a class="related-item" href="{{ url_for('citizen.track_complaint', public_id=item.complaint.public_id) }}">
+                <span class="related-id">{{ item.public_id }}</span>
+                <span class="related-body">
+                  <strong>{{ item.complaint.title }}</strong>
+                  <span>{{ item.complaint.category }} · {{ item.complaint.status }}</span>
+                </span>
+                <span class="related-metrics">
+                  <span>{{ (item.text_similarity * 100)|round(0)|int }}% text match</span>
+                  {% if item.distance_km is not none %}<span>{{ item.distance_km }} km away</span>{% else %}<span>text-only match</span>{% endif %}
+                </span>
+              </a>
+            {% endfor %}
+          </div>
+          <p class="field-hint">Similar wording alone is not enough to merge reports. Confirmed duplicate links are shown explicitly.</p>
+        </article>
+      {% endif %}
+
+      <article class="card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">Location</p>
+            <h2>Where it was reported</h2>
+          </div>
+        </div>
+        <div class="location-summary">
+          <div>
+            <span class="detail-label">Location description</span>
+            <p>{{ complaint.address }}</p>
+          </div>
+          {% if complaint.latitude is not none %}
+            <div>
+              <span class="detail-label">Coordinates</span>
+              <p class="mono">{{ '%.5f'|format(complaint.latitude) }}, {{ '%.5f'|format(complaint.longitude) }}</p>
+              <a class="text-link" href="https://www.openstreetmap.org/?mlat={{ complaint.latitude }}&mlon={{ complaint.longitude }}#map=17/{{ complaint.latitude }}/{{ complaint.longitude }}" target="_blank" rel="noopener noreferrer">Open in OpenStreetMap <span aria-hidden="true">↗</span></a>
+            </div>
+          {% else %}
+            <p class="field-hint">No coordinates were supplied. Hotspot analysis cannot place this report on the map.</p>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+
+    <aside class="complaint-aside">
+      <section class="card status-card">
+        <div class="card-heading compact">
+          <div>
+            <p class="section-kicker">Live status</p>
+            <h2>{{ complaint.status }}</h2>
+          </div>
+          <span class="badge status-{{ complaint.status|status_class }}">{{ complaint.status }}</span>
+        </div>
+
+        {% set steps = ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Resolved'] %}
+        {% set current_index = steps.index(complaint.status) %}
+        <div class="progress-track" aria-label="Complaint lifecycle">
+          {% for step in steps %}
+            <div class="progress-step {% if loop.index0 < current_index %}is-complete{% elif loop.index0 == current_index %}is-current{% endif %}">
+              <span class="progress-dot">{{ loop.index }}</span>
+              <span class="progress-label">{{ step }}</span>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="status-meta-grid">
+          <div><span class="detail-label">Assigned to</span><strong>{{ complaint.assigned_department or 'Awaiting assignment' }}</strong></div>
+          <div><span class="detail-label">Last update</span><strong>{{ complaint.updated_at|time_ago }}</strong></div>
+        </div>
+
+        <h3 class="timeline-title">Status history</h3>
+        <ol class="status-timeline">
+          {% for entry in complaint.status_history %}
+            {% if entry.is_public or entry.previous_status != entry.new_status %}
+              <li class="timeline-item">
+                <span class="timeline-dot" aria-hidden="true"></span>
+                <div>
+                  <div class="timeline-head">
+                    <strong>{{ entry.new_status }}</strong>
+                    <time datetime="{{ entry.created_at.isoformat() }}">{{ entry.created_at|dt('%d %b, %H:%M') }}</time>
+                  </div>
+                  {% if entry.is_public and entry.note %}<p>{{ entry.note }}</p>{% endif %}
+                </div>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ol>
+        <p class="field-hint">Only public status notes are shown. Internal officer notes stay private.</p>
+      </section>
+
+      <section class="card aside-info-card">
+        <span class="aside-kicker">Keep this ID</span>
+        <h2>{{ complaint.public_id }}</h2>
+        <div class="copy-row">
+          <button type="button" class="btn btn-outline btn-small copy-btn" data-copy="{{ complaint.public_id }}">Copy complaint ID</button>
+          <a class="btn btn-ghost btn-small" href="{{ url_for('citizen.track') }}">Track another</a>
+        </div>
+        <p class="field-hint">You can return to this page at any time with the ID above.</p>
+      </section>
+
+      <section class="card aside-info-card aside-cta">
+        <span class="aside-kicker">Something else?</span>
+        <h2>Report a separate issue</h2>
+        <p>Submit each distinct problem as its own report so it can be tracked and assigned accurately.</p>
+        <a class="btn btn-primary" href="{{ url_for('citizen.report') }}">Start a new report</a>
+      </section>
+    </aside>
+  </div>
+</section>
+{% endblock %}

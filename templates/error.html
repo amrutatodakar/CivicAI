@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — {{ title }} | CivicAI{% endblock %}
+{% block body_class %}page-error{% endblock %}
+
+{% block content %}
+<section class="section error-section">
+  <div class="container error-container">
+    <div class="error-card card">
+      <span class="error-code">{{ code }}</span>
+      <h1>{{ title }}</h1>
+      <p>{{ message }}</p>
+      <div class="error-actions">
+        <a class="btn btn-primary" href="{{ url_for('citizen.index') }}">Return home</a>
+        <a class="btn btn-outline" href="{{ url_for('citizen.track') }}">Track a complaint</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
